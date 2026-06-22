@@ -21,7 +21,9 @@
   "dependencies": {
     "@mysten/sui": "^1.30.0",
     "@ripple-studio/generation": "*",
+    "@ripple-studio/ai-knowledge": "*",
     "@ripple-studio/metadata": "*",
+    "openai": "^4.104.0",
     "@ripple-studio/walrus-client": "*",
     "archiver": "^7.0.1",
     "bullmq": "^5.53.2",

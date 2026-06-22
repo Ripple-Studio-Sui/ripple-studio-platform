@@ -5,6 +5,7 @@ import { CollectionsModule } from './collections/collections.module';
 import { GenerationModule } from './generation/generation.module';
 import { WalrusModule } from './walrus/walrus.module';
 import { MetadataModule } from './metadata/metadata.module';
+import { AiModule } from './ai/ai.module';
 import { HealthModule } from './health/health.module';
 import { PrismaModule } from './prisma/prisma.module';
 
@@ -17,6 +18,7 @@ import { PrismaModule } from './prisma/prisma.module';
     GenerationModule,
     WalrusModule,
     MetadataModule,
+    AiModule,
   ],
   controllers: [AppController],
 })

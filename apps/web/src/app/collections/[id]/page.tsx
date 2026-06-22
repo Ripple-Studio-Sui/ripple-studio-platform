@@ -24,12 +24,14 @@ import type {
 } from '@ripple-studio/shared';
 import { ArrowLeft, CloudUpload, Download, FileJson, Loader2 } from 'lucide-react';
 import Link from 'next/link';
+import { useCoachContext } from '@/lib/ai/coach-context';
 import { useParams } from 'next/navigation';
 import { useEffect, useState } from 'react';
 
 function CollectionView() {
   const params = useParams();
   const id = params.id as string;
+  const { setCollectionId: setCoachCollectionId } = useCoachContext();
   const [detail, setDetail] = useState<CollectionDetail | null>(null);
   const [nfts, setNfts] = useState<NftItemPreview[]>([]);
   const [total, setTotal] = useState(0);
@@ -43,6 +45,11 @@ function CollectionView() {
   const [metadataSummary, setMetadataSummary] = useState<MetadataSummary | null>(null);
   const [isGeneratingMetadata, setIsGeneratingMetadata] = useState(false);
   const [isDownloadingZip, setIsDownloadingZip] = useState(false);
+
+  useEffect(() => {
+    setCoachCollectionId(id);
+    return () => setCoachCollectionId(undefined);
+  }, [id, setCoachCollectionId]);
 
   useEffect(() => {
     Promise.all([getCollectionDetail(id), listGeneratedNfts(id, 1, 100)])

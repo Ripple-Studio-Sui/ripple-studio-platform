@@ -55,9 +55,11 @@ import {
   Sparkles,
 } from 'lucide-react';
 import Link from 'next/link';
+import { useCoachContext } from '@/lib/ai/coach-context';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 export function CreateWizard() {
+  const { setCollectionId: setCoachCollectionId } = useCoachContext();
   const [step, setStep] = useState<WizardStep>('details');
   const [completed, setCompleted] = useState<Set<WizardStep>>(new Set());
   const [collectionId, setCollectionId] = useState<string | null>(null);
@@ -232,6 +234,11 @@ export function CreateWizard() {
       setLoading(false);
     }
   };
+
+  useEffect(() => {
+    setCoachCollectionId(collectionId ?? undefined);
+    return () => setCoachCollectionId(undefined);
+  }, [collectionId, setCoachCollectionId]);
 
   useEffect(() => {
     if (collectionId && step !== 'details') {
