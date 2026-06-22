@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Post } from '@nestjs/common';
+import { Body, Controller, Get, Param, Post } from '@nestjs/common';
 import type { CreateCollectionInput } from '@ripple-studio/shared';
 import { CollectionsService } from './collections.service';
 
@@ -9,6 +9,11 @@ export class CollectionsController {
   @Get()
   findAll() {
     return this.collectionsService.findAll();
+  }
+
+  @Get(':id')
+  findOne(@Param('id') id: string) {
+    return this.collectionsService.findOne(id);
   }
 
   @Post()

@@ -54,7 +54,7 @@ ripple-studio-platform/
 
 ## Getting Started
 
-**Prerequisites:** Node.js 20+, npm 10+, Redis (for workers)
+**Prerequisites:** Node.js 20+, npm 10+, Docker (for Postgres + Redis)
 
 ```bash
 # Install dependencies
@@ -63,8 +63,27 @@ npm install
 # Copy environment variables
 cp .env.example .env
 
+# Start Postgres + Redis
+docker compose up -d
+
+# Run database migrations
+cd apps/api && npm run db:migrate:deploy && npm run db:seed && cd ../..
+
 # Start all services in dev mode
 npm run dev
+```
+
+### Database
+
+16 tables across users, collections, NFTs, deployments, payments, and jobs.  
+Schema: `apps/api/prisma/schema.prisma`  
+Migration: `apps/api/prisma/migrations/20250622120000_init/`
+
+```bash
+# Useful commands (from apps/api)
+npm run db:studio    # Visual DB browser
+npm run db:migrate   # Create new migrations
+npm run db:seed      # Seed demo user + sample collection
 ```
 
 | Service | URL |
@@ -76,7 +95,8 @@ npm run dev
 ## Status
 
 🟢 **PR-1 complete** — Monorepo scaffold  
-🔜 **PR-2 next** — Database schema & Prisma migrations
+🟢 **PR-2 complete** — Database schema & Prisma migrations  
+🔜 **PR-3 next** — zkLogin authentication (Google + Apple)
 
 ## License
 

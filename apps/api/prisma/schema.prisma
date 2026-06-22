@@ -1,0 +1,388 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ─── Enums ───────────────────────────────────────────────────────────────────
+
+enum ExperienceMode {
+  beginner
+  creator
+  builder
+}
+
+enum UserTier {
+  free
+  pro
+  enterprise
+}
+
+enum CollectionStatus {
+  draft
+  generating
+  generated
+  deploying
+  deployed
+  published
+  archived
+}
+
+enum MintCurrency {
+  SUI
+  LOFI
+  USDC
+  USDsui
+}
+
+enum NftItemStatus {
+  pending
+  generated
+  uploaded
+  deployed
+  failed
+}
+
+enum DeploymentNetwork {
+  testnet
+  mainnet
+}
+
+enum NftType {
+  standard
+  dynamic
+  membership
+  event_ticket
+  soulbound
+  loyalty
+}
+
+enum DeploymentStatus {
+  pending
+  in_progress
+  completed
+  failed
+}
+
+enum MarketplaceName {
+  tradeport
+  bluemove
+  clutchy
+}
+
+enum ListingStatus {
+  pending
+  active
+  inactive
+  failed
+}
+
+enum PaymentCurrency {
+  SUI
+  LOFI
+  USDC
+  USDsui
+}
+
+enum PaymentStatus {
+  pending
+  completed
+  failed
+  refunded
+}
+
+enum FeeCategory {
+  generation
+  storage
+  deployment
+  premium_ai
+  marketplace
+  subscription
+}
+
+enum JobStatus {
+  queued
+  processing
+  completed
+  failed
+  cancelled
+}
+
+enum AgentType {
+  creator_coach
+  nft_architect
+  metadata
+  marketplace
+  deployment
+  support
+}
+
+// ─── Users & Identity ─────────────────────────────────────────────────────────
+
+model User {
+  id             String         @id @default(uuid()) @db.Uuid
+  email          String?        @db.VarChar(255)
+  displayName    String?        @map("display_name") @db.VarChar(100)
+  avatarUrl      String?        @map("avatar_url")
+  zkloginIss     String         @map("zklogin_iss") @db.VarChar(255)
+  zkloginSub     String         @map("zklogin_sub") @db.VarChar(255)
+  zkloginAud     String         @map("zklogin_aud") @db.VarChar(255)
+  suiAddress     String         @unique @map("sui_address") @db.VarChar(66)
+  saltRefId      String         @map("salt_ref_id") @db.Uuid
+  experienceMode ExperienceMode @default(beginner) @map("experience_mode")
+  tier           UserTier       @default(free)
+  createdAt      DateTime       @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt      DateTime       @updatedAt @map("updated_at") @db.Timestamptz
+
+  wallets             Wallet[]
+  collections         Collection[]
+  memorySpaces        MemorySpace[]
+  payments            Payment[]
+  aiSessions          AiSession[]
+  saltVault           SaltVault?    @relation(fields: [saltRefId], references: [id])
+
+  @@unique([zkloginIss, zkloginSub, zkloginAud])
+  @@map("users")
+}
+
+model SaltVault {
+  id           String   @id @default(uuid()) @db.Uuid
+  encryptedSalt String  @map("encrypted_salt")
+  keyVersion   Int      @default(1) @map("key_version")
+  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  users User[]
+
+  @@map("salt_vault")
+}
+
+model Wallet {
+  id         String   @id @default(uuid()) @db.Uuid
+  userId     String   @map("user_id") @db.Uuid
+  suiAddress String   @unique @map("sui_address") @db.VarChar(66)
+  isPrimary  Boolean  @default(true) @map("is_primary")
+  createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("wallets")
+}
+
+model MemorySpace {
+  id            String   @id @default(uuid()) @db.Uuid
+  userId        String   @map("user_id") @db.Uuid
+  memwalSpaceId String?  @map("memwal_space_id") @db.VarChar(100)
+  spaceType     String   @map("space_type") @db.VarChar(50)
+  createdAt     DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, spaceType])
+  @@map("memory_spaces")
+}
+
+// ─── Collections ─────────────────────────────────────────────────────────────
+
+model Collection {
+  id            String           @id @default(uuid()) @db.Uuid
+  userId        String           @map("user_id") @db.Uuid
+  name          String           @db.VarChar(200)
+  slug          String           @db.VarChar(200)
+  description   String?
+  symbol        String?          @db.VarChar(10)
+  supply        Int
+  status        CollectionStatus @default(draft)
+  artStyle      Json?            @map("art_style")
+  royaltyBps    Int              @default(500) @map("royalty_bps")
+  mintPrice     BigInt?          @map("mint_price")
+  mintCurrency  MintCurrency     @default(SUI) @map("mint_currency")
+  previewUrl    String?          @map("preview_url")
+  memwalSpaceId String?          @map("memwal_space_id") @db.VarChar(100)
+  createdAt     DateTime         @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt     DateTime         @updatedAt @map("updated_at") @db.Timestamptz
+
+  user                User                 @relation(fields: [userId], references: [id], onDelete: Cascade)
+  traitLayers         TraitLayer[]
+  nftItems            NftItem[]
+  deployments         Deployment[]
+  marketplaceListings MarketplaceListing[]
+  aiSessions          AiSession[]
+
+  @@unique([userId, slug])
+  @@index([userId])
+  @@index([status])
+  @@map("collections")
+}
+
+model TraitLayer {
+  id           String   @id @default(uuid()) @db.Uuid
+  collectionId String   @map("collection_id") @db.Uuid
+  name         String   @db.VarChar(100)
+  displayOrder Int      @map("display_order")
+  isRequired   Boolean  @default(true) @map("is_required")
+  blendMode    String   @default("normal") @map("blend_mode") @db.VarChar(20)
+  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  collection Collection   @relation(fields: [collectionId], references: [id], onDelete: Cascade)
+  assets     TraitAsset[]
+
+  @@map("trait_layers")
+}
+
+model TraitAsset {
+  id           String   @id @default(uuid()) @db.Uuid
+  layerId      String   @map("layer_id") @db.Uuid
+  name         String   @db.VarChar(100)
+  filePath     String   @map("file_path")
+  walrusBlobId String?  @map("walrus_blob_id") @db.VarChar(100)
+  rarityWeight Int      @default(100) @map("rarity_weight")
+  metadata     Json?
+  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  layer TraitLayer @relation(fields: [layerId], references: [id], onDelete: Cascade)
+
+  @@map("trait_assets")
+}
+
+model NftItem {
+  id           String        @id @default(uuid()) @db.Uuid
+  collectionId String        @map("collection_id") @db.Uuid
+  tokenId      Int           @map("token_id")
+  name         String?       @db.VarChar(200)
+  imageBlobId  String?       @map("image_blob_id") @db.VarChar(100)
+  imageUrl     String?       @map("image_url")
+  traitHash    String        @map("trait_hash") @db.VarChar(64)
+  rarityScore  Decimal?      @map("rarity_score") @db.Decimal(10, 4)
+  rarityRank   Int?          @map("rarity_rank")
+  status       NftItemStatus @default(pending)
+  suiObjectId  String?       @map("sui_object_id") @db.VarChar(66)
+  createdAt    DateTime      @default(now()) @map("created_at") @db.Timestamptz
+
+  collection     Collection      @relation(fields: [collectionId], references: [id], onDelete: Cascade)
+  metadataRecord MetadataRecord?
+
+  @@unique([collectionId, tokenId])
+  @@unique([collectionId, traitHash])
+  @@index([collectionId])
+  @@index([collectionId, rarityRank])
+  @@map("nft_items")
+}
+
+model MetadataRecord {
+  id             String   @id @default(uuid()) @db.Uuid
+  nftItemId      String   @unique @map("nft_item_id") @db.Uuid
+  walrusBlobId   String?  @map("walrus_blob_id") @db.VarChar(100)
+  metadataUri    String?  @map("metadata_uri")
+  schemaVersion  String   @default("1.0") @map("schema_version") @db.VarChar(10)
+  payload        Json
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  nftItem NftItem @relation(fields: [nftItemId], references: [id], onDelete: Cascade)
+
+  @@map("metadata_records")
+}
+
+// ─── Storage ─────────────────────────────────────────────────────────────────
+
+model WalrusBlob {
+  id          String    @id @default(uuid()) @db.Uuid
+  blobId      String    @unique @map("blob_id") @db.VarChar(100)
+  contentType String?   @map("content_type") @db.VarChar(100)
+  sizeBytes   BigInt?   @map("size_bytes")
+  costWal     Decimal?  @map("cost_wal") @db.Decimal(18, 8)
+  pinnedUntil DateTime? @map("pinned_until") @db.Timestamptz
+  createdAt   DateTime  @default(now()) @map("created_at") @db.Timestamptz
+
+  @@map("walrus_blobs")
+}
+
+// ─── Deployment ──────────────────────────────────────────────────────────────
+
+model Deployment {
+  id             String            @id @default(uuid()) @db.Uuid
+  collectionId   String            @map("collection_id") @db.Uuid
+  packageId      String?           @map("package_id") @db.VarChar(66)
+  publisherCap   String?           @map("publisher_cap") @db.VarChar(66)
+  transferPolicy String?           @map("transfer_policy") @db.VarChar(66)
+  kioskCap       String?           @map("kiosk_cap") @db.VarChar(66)
+  txDigest       String?           @map("tx_digest") @db.VarChar(44)
+  network        DeploymentNetwork @default(mainnet)
+  nftType        NftType           @default(standard) @map("nft_type")
+  status         DeploymentStatus  @default(pending)
+  deployedAt     DateTime?         @map("deployed_at") @db.Timestamptz
+  createdAt      DateTime          @default(now()) @map("created_at") @db.Timestamptz
+
+  collection Collection @relation(fields: [collectionId], references: [id], onDelete: Cascade)
+
+  @@map("deployments")
+}
+
+// ─── Marketplace ─────────────────────────────────────────────────────────────
+
+model MarketplaceListing {
+  id           String          @id @default(uuid()) @db.Uuid
+  collectionId String          @map("collection_id") @db.Uuid
+  marketplace  MarketplaceName
+  externalId   String?         @map("external_id") @db.VarChar(100)
+  listingUrl   String?         @map("listing_url")
+  status       ListingStatus   @default(pending)
+  listedAt     DateTime?       @map("listed_at") @db.Timestamptz
+  createdAt    DateTime        @default(now()) @map("created_at") @db.Timestamptz
+
+  collection Collection @relation(fields: [collectionId], references: [id], onDelete: Cascade)
+
+  @@map("marketplace_listings")
+}
+
+// ─── Payments ────────────────────────────────────────────────────────────────
+
+model Payment {
+  id          String          @id @default(uuid()) @db.Uuid
+  userId      String          @map("user_id") @db.Uuid
+  amount      BigInt
+  currency    PaymentCurrency
+  feeCategory FeeCategory     @map("fee_category")
+  txDigest    String?         @map("tx_digest") @db.VarChar(44)
+  status      PaymentStatus   @default(pending)
+  createdAt   DateTime        @default(now()) @map("created_at") @db.Timestamptz
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@index([userId, createdAt(sort: Desc)])
+  @@map("payments")
+}
+
+// ─── AI ──────────────────────────────────────────────────────────────────────
+
+model AiSession {
+  id             String     @id @default(uuid()) @db.Uuid
+  userId         String     @map("user_id") @db.Uuid
+  collectionId   String?    @map("collection_id") @db.Uuid
+  agentType      AgentType? @map("agent_type")
+  memwalThreadId String?    @map("memwal_thread_id") @db.VarChar(100)
+  createdAt      DateTime   @default(now()) @map("created_at") @db.Timestamptz
+
+  user       User        @relation(fields: [userId], references: [id])
+  collection Collection? @relation(fields: [collectionId], references: [id])
+
+  @@map("ai_sessions")
+}
+
+// ─── Jobs ────────────────────────────────────────────────────────────────────
+
+model Job {
+  id          String    @id @default(uuid()) @db.Uuid
+  type        String    @db.VarChar(50)
+  payload     Json
+  status      JobStatus @default(queued)
+  attempts    Int       @default(0)
+  error       String?
+  createdAt   DateTime  @default(now()) @map("created_at") @db.Timestamptz
+  completedAt DateTime? @map("completed_at") @db.Timestamptz
+
+  @@index([status])
+  @@map("jobs")
+}

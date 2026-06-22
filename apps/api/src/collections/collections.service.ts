@@ -1,35 +1,80 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import type { Collection, CreateCollectionInput } from '@ripple-studio/shared';
-import { randomUUID } from 'crypto';
+import { PrismaService } from '../prisma/prisma.service';
+import { slugify, toCollectionDto } from './collections.mapper';
 
 @Injectable()
 export class CollectionsService {
-  private collections: Collection[] = [];
+  constructor(private readonly prisma: PrismaService) {}
 
-  findAll(): Collection[] {
-    return this.collections;
+  async findAll(): Promise<Collection[]> {
+    const records = await this.prisma.collection.findMany({
+      orderBy: { createdAt: 'desc' },
+    });
+    return records.map(toCollectionDto);
   }
 
-  create(input: CreateCollectionInput): Collection {
-    const slug = input.name
-      .toLowerCase()
-      .replace(/[^a-z0-9]+/g, '-')
-      .replace(/(^-|-$)/g, '');
+  async findOne(id: string): Promise<Collection> {
+    const record = await this.prisma.collection.findUnique({ where: { id } });
+    if (!record) {
+      throw new NotFoundException(`Collection ${id} not found`);
+    }
+    return toCollectionDto(record);
+  }
 
-    const collection: Collection = {
-      id: randomUUID(),
-      userId: 'demo-user',
-      name: input.name,
-      slug,
-      description: input.description,
-      supply: input.supply,
-      status: 'draft',
-      royaltyBps: input.royaltyBps ?? 500,
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-    };
+  async create(input: CreateCollectionInput, userId?: string): Promise<Collection> {
+    const ownerId = userId ?? (await this.ensureDemoUser()).id;
 
-    this.collections.push(collection);
-    return collection;
+    const record = await this.prisma.collection.create({
+      data: {
+        userId: ownerId,
+        name: input.name,
+        slug: slugify(input.name),
+        description: input.description,
+        supply: input.supply,
+        royaltyBps: input.royaltyBps ?? 500,
+        status: 'draft',
+      },
+    });
+
+    return toCollectionDto(record);
+  }
+
+  /** Demo user for development before zkLogin (PR-3) */
+  private async ensureDemoUser() {
+    const existing = await this.prisma.user.findFirst({
+      where: { zkloginSub: 'demo-user' },
+    });
+
+    if (existing) return existing;
+
+    const saltVault = await this.prisma.saltVault.create({
+      data: { encryptedSalt: 'demo-encrypted-salt-placeholder' },
+    });
+
+    return this.prisma.user.create({
+      data: {
+        zkloginIss: 'https://demo.ripple.studio',
+        zkloginSub: 'demo-user',
+        zkloginAud: 'ripple-studio-demo',
+        suiAddress: '0x' + '0'.repeat(64),
+        saltRefId: saltVault.id,
+        displayName: 'Demo Creator',
+        wallets: {
+          create: {
+            suiAddress: '0x' + '0'.repeat(64),
+            isPrimary: true,
+          },
+        },
+        memorySpaces: {
+          create: [
+            { spaceType: 'profile' },
+            { spaceType: 'collections' },
+            { spaceType: 'conversations' },
+            { spaceType: 'preferences' },
+          ],
+        },
+      },
+    });
   }
 }
