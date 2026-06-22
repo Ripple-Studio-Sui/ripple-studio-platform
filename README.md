@@ -37,9 +37,46 @@ Help creators go from **idea → design → generation → storage → deploymen
 
 - [Platform Design Document](./docs/DESIGN.md) — Full system architecture, database schema, roadmap
 
+## Monorepo Structure
+
+```
+ripple-studio-platform/
+├── apps/
+│   ├── web/        # Next.js 15 frontend
+│   ├── api/        # NestJS backend API
+│   └── worker/     # BullMQ background jobs
+├── packages/
+│   ├── shared/     # Shared types & constants
+│   └── typescript-config/
+└── docs/
+    └── DESIGN.md   # Full platform architecture
+```
+
+## Getting Started
+
+**Prerequisites:** Node.js 20+, npm 10+, Redis (for workers)
+
+```bash
+# Install dependencies
+npm install
+
+# Copy environment variables
+cp .env.example .env
+
+# Start all services in dev mode
+npm run dev
+```
+
+| Service | URL |
+|---------|-----|
+| Web | http://localhost:3000 |
+| API | http://localhost:4000 |
+| API Health | http://localhost:4000/health |
+
 ## Status
 
-🟡 **Pre-development** — Architecture and design phase
+🟢 **PR-1 complete** — Monorepo scaffold  
+🔜 **PR-2 next** — Database schema & Prisma migrations
 
 ## License
 
