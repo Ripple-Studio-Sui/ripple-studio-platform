@@ -7,6 +7,7 @@ export class QueueService implements OnModuleDestroy {
   private readonly connection: IORedis;
   readonly generationQueue: Queue;
   readonly walrusQueue: Queue;
+  readonly metadataQueue: Queue;
 
   constructor() {
     this.connection = new IORedis(process.env.REDIS_URL ?? 'redis://localhost:6379', {
@@ -15,6 +16,7 @@ export class QueueService implements OnModuleDestroy {
 
     this.generationQueue = new Queue('nft-generation', { connection: this.connection });
     this.walrusQueue = new Queue('walrus-upload', { connection: this.connection });
+    this.metadataQueue = new Queue('metadata-generation', { connection: this.connection });
   }
 
   async enqueueGeneration(collectionId: string, jobId: string) {
@@ -45,8 +47,26 @@ export class QueueService implements OnModuleDestroy {
     );
   }
 
+  async enqueueMetadataGeneration(collectionId: string, jobId: string) {
+    await this.metadataQueue.add(
+      'generate',
+      { collectionId, jobId },
+      {
+        jobId: `metadata-${collectionId}-${jobId}`,
+        removeOnComplete: 100,
+        removeOnFail: 50,
+        attempts: 2,
+        backoff: { type: 'exponential', delay: 10_000 },
+      },
+    );
+  }
+
   async onModuleDestroy() {
-    await Promise.all([this.generationQueue.close(), this.walrusQueue.close()]);
+    await Promise.all([
+      this.generationQueue.close(),
+      this.walrusQueue.close(),
+      this.metadataQueue.close(),
+    ]);
     this.connection.disconnect();
   }
 }

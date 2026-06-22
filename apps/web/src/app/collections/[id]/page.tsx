@@ -4,17 +4,25 @@ import { AuthGuard } from '@/components/auth-guard';
 import { getCollectionDetail } from '@/lib/collections';
 import { listGeneratedNfts } from '@/lib/generation';
 import {
+  downloadMetadataZip,
+  getMetadataStatus,
+  getMetadataSummary,
+  startMetadataGeneration,
+} from '@/lib/metadata';
+import {
   getWalrusCostEstimate,
   getWalrusUploadStatus,
   startWalrusUpload,
 } from '@/lib/walrus';
 import type {
   CollectionDetail,
+  MetadataJobStatus,
+  MetadataSummary,
   NftItemPreview,
   WalrusCostEstimate,
   WalrusUploadJobStatus,
 } from '@ripple-studio/shared';
-import { ArrowLeft, CloudUpload, Loader2 } from 'lucide-react';
+import { ArrowLeft, CloudUpload, Download, FileJson, Loader2 } from 'lucide-react';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { useEffect, useState } from 'react';
@@ -31,6 +39,10 @@ function CollectionView() {
   const [isUploading, setIsUploading] = useState(false);
   const [uploadedCount, setUploadedCount] = useState(0);
   const [error, setError] = useState<string | null>(null);
+  const [metadataStatus, setMetadataStatus] = useState<MetadataJobStatus | null>(null);
+  const [metadataSummary, setMetadataSummary] = useState<MetadataSummary | null>(null);
+  const [isGeneratingMetadata, setIsGeneratingMetadata] = useState(false);
+  const [isDownloadingZip, setIsDownloadingZip] = useState(false);
 
   useEffect(() => {
     Promise.all([getCollectionDetail(id), listGeneratedNfts(id, 1, 100)])
@@ -54,6 +66,8 @@ function CollectionView() {
         if (s.uploaded > 0) setUploadedCount(s.uploaded);
       })
       .catch(() => {});
+    getMetadataSummary(id).then(setMetadataSummary).catch(() => {});
+    getMetadataStatus(id).then(setMetadataStatus).catch(() => {});
   }, [id, detail]);
 
   useEffect(() => {
@@ -81,6 +95,61 @@ function CollectionView() {
 
     return () => clearInterval(interval);
   }, [id, isUploading, walrusStatus?.status]);
+
+  useEffect(() => {
+    if (!id || !isGeneratingMetadata) return;
+    if (metadataStatus?.status === 'completed' || metadataStatus?.status === 'failed') return;
+
+    const interval = setInterval(async () => {
+      try {
+        const status = await getMetadataStatus(id);
+        setMetadataStatus(status);
+        if (status.status === 'completed') {
+          setIsGeneratingMetadata(false);
+          const summary = await getMetadataSummary(id);
+          setMetadataSummary(summary);
+        }
+        if (status.status === 'failed') {
+          setIsGeneratingMetadata(false);
+          setError(status.error ?? 'Metadata generation failed');
+        }
+      } catch {
+        /* retry */
+      }
+    }, 2000);
+
+    return () => clearInterval(interval);
+  }, [id, isGeneratingMetadata, metadataStatus?.status]);
+
+  const handleMetadataGenerate = async () => {
+    setIsGeneratingMetadata(true);
+    setError(null);
+    try {
+      const status = await startMetadataGeneration(id);
+      setMetadataStatus(status);
+      if (status.status === 'completed') {
+        setIsGeneratingMetadata(false);
+        const summary = await getMetadataSummary(id);
+        setMetadataSummary(summary);
+      }
+    } catch (err) {
+      setIsGeneratingMetadata(false);
+      setError(err instanceof Error ? err.message : 'Failed to start metadata generation');
+    }
+  };
+
+  const handleDownloadZip = async () => {
+    if (!detail) return;
+    setIsDownloadingZip(true);
+    setError(null);
+    try {
+      await downloadMetadataZip(id, `${detail.slug}-metadata.zip`);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to download metadata');
+    } finally {
+      setIsDownloadingZip(false);
+    }
+  };
 
   const handleWalrusUpload = async () => {
     setIsUploading(true);
@@ -135,6 +204,9 @@ function CollectionView() {
               {uploadedCount > 0 && (
                 <span className="text-emerald-400"> · {uploadedCount} on Walrus</span>
               )}
+              {metadataSummary && metadataSummary.generated > 0 && (
+                <span className="text-ripple-400"> · {metadataSummary.generated} metadata</span>
+              )}
             </p>
           </div>
           <div className="flex gap-2">
@@ -152,6 +224,36 @@ function CollectionView() {
                 Store on Walrus
               </button>
             )}
+            {detail.status === 'generated' &&
+              uploadedCount >= total &&
+              (!metadataSummary || metadataSummary.generated < total) && (
+                <button
+                  onClick={handleMetadataGenerate}
+                  disabled={isGeneratingMetadata}
+                  className="flex items-center gap-2 bg-ripple-500 hover:bg-ripple-400 disabled:opacity-50 text-white px-4 py-2 rounded-lg text-sm"
+                >
+                  {isGeneratingMetadata ? (
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                  ) : (
+                    <FileJson className="w-4 h-4" />
+                  )}
+                  Generate Metadata
+                </button>
+              )}
+            {metadataSummary?.readyForExport && (
+              <button
+                onClick={handleDownloadZip}
+                disabled={isDownloadingZip}
+                className="flex items-center gap-2 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white px-4 py-2 rounded-lg text-sm"
+              >
+                {isDownloadingZip ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : (
+                  <Download className="w-4 h-4" />
+                )}
+                Download ZIP
+              </button>
+            )}
             {detail.status === 'draft' && (
               <Link
                 href="/create"
@@ -166,6 +268,25 @@ function CollectionView() {
         {error && (
           <div className="mb-6 bg-red-900/30 border border-red-700/50 rounded-lg p-4 text-sm text-red-200">
             {error}
+          </div>
+        )}
+
+        {isGeneratingMetadata && metadataStatus && (
+          <div className="mb-6 bg-ripple-900/40 border border-ripple-700/50 rounded-xl p-4">
+            <div className="flex justify-between text-sm text-ripple-400 mb-2">
+              <span className="capitalize">Metadata {metadataStatus.phase}…</span>
+              <span>
+                {metadataStatus.progress} / {metadataStatus.total}
+              </span>
+            </div>
+            <div className="h-2 bg-ripple-950/50 rounded-full overflow-hidden">
+              <div
+                className="h-full bg-ripple-400 transition-all duration-500"
+                style={{
+                  width: `${metadataStatus.total ? (metadataStatus.progress / metadataStatus.total) * 100 : 0}%`,
+                }}
+              />
+            </div>
           </div>
         )}
 

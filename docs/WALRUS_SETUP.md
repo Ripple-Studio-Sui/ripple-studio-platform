@@ -42,4 +42,4 @@ Mainnet has no public unauthenticated publisher. Configure:
 3. Worker uploads images in batches, records `walrus_blobs`, updates `nft_items.image_blob_id` and `image_url`
 4. Images served at `{AGGREGATOR}/v1/blobs/{blob_id}`
 
-Metadata JSON upload is handled in PR-7.
+Metadata JSON generation and upload is handled by the metadata engine (PR-7). See `docs/METADATA_SETUP.md`.

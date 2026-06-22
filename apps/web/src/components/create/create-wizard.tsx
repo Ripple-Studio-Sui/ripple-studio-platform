@@ -23,12 +23,20 @@ import {
   startGeneration,
 } from '@/lib/generation';
 import {
+  downloadMetadataZip,
+  getMetadataStatus,
+  getMetadataSummary,
+  startMetadataGeneration,
+} from '@/lib/metadata';
+import {
   getWalrusCostEstimate,
   getWalrusUploadStatus,
   startWalrusUpload,
 } from '@/lib/walrus';
 import type {
   GenerationJobStatus,
+  MetadataJobStatus,
+  MetadataSummary,
   NftItemPreview,
   WalrusCostEstimate,
   WalrusUploadJobStatus,
@@ -41,6 +49,8 @@ import {
   GripVertical,
   Layers,
   CloudUpload,
+  Download,
+  FileJson,
   Loader2,
   Sparkles,
 } from 'lucide-react';
@@ -69,6 +79,11 @@ export function CreateWizard() {
   const [walrusEstimate, setWalrusEstimate] = useState<WalrusCostEstimate | null>(null);
   const [isUploadingWalrus, setIsUploadingWalrus] = useState(false);
   const [walrusComplete, setWalrusComplete] = useState(false);
+  const [metadataStatus, setMetadataStatus] = useState<MetadataJobStatus | null>(null);
+  const [metadataSummary, setMetadataSummary] = useState<MetadataSummary | null>(null);
+  const [isGeneratingMetadata, setIsGeneratingMetadata] = useState(false);
+  const [metadataComplete, setMetadataComplete] = useState(false);
+  const [isDownloadingZip, setIsDownloadingZip] = useState(false);
 
   const [previewSeed, setPreviewSeed] = useState(0);
   const previews = useMemo(
@@ -290,6 +305,82 @@ export function CreateWizard() {
 
     return () => clearInterval(interval);
   }, [collectionId, isUploadingWalrus, walrusStatus?.status]);
+
+  useEffect(() => {
+    if (!collectionId || !walrusComplete) return;
+    getMetadataSummary(collectionId)
+      .then((summary) => {
+        setMetadataSummary(summary);
+        if (summary.generated > 0) setMetadataComplete(true);
+      })
+      .catch(() => {});
+    getMetadataStatus(collectionId)
+      .then((status) => {
+        setMetadataStatus(status);
+        if (status.status === 'completed' && status.generated > 0) {
+          setMetadataComplete(true);
+        }
+      })
+      .catch(() => {});
+  }, [collectionId, walrusComplete]);
+
+  useEffect(() => {
+    if (!collectionId || !isGeneratingMetadata) return;
+    if (metadataStatus?.status === 'completed' || metadataStatus?.status === 'failed') return;
+
+    const interval = setInterval(async () => {
+      try {
+        const status = await getMetadataStatus(collectionId);
+        setMetadataStatus(status);
+        if (status.status === 'completed') {
+          setIsGeneratingMetadata(false);
+          setMetadataComplete(true);
+          const summary = await getMetadataSummary(collectionId);
+          setMetadataSummary(summary);
+        }
+        if (status.status === 'failed') {
+          setIsGeneratingMetadata(false);
+          setError(status.error ?? 'Metadata generation failed');
+        }
+      } catch {
+        /* retry */
+      }
+    }, 2000);
+
+    return () => clearInterval(interval);
+  }, [collectionId, isGeneratingMetadata, metadataStatus?.status]);
+
+  const handleMetadataGenerate = async () => {
+    if (!collectionId) return;
+    setIsGeneratingMetadata(true);
+    setError(null);
+    try {
+      const status = await startMetadataGeneration(collectionId);
+      setMetadataStatus(status);
+      if (status.status === 'completed') {
+        setIsGeneratingMetadata(false);
+        setMetadataComplete(true);
+        const summary = await getMetadataSummary(collectionId);
+        setMetadataSummary(summary);
+      }
+    } catch (err) {
+      setIsGeneratingMetadata(false);
+      setError(err instanceof Error ? err.message : 'Failed to start metadata generation');
+    }
+  };
+
+  const handleDownloadZip = async () => {
+    if (!collectionId || !detail) return;
+    setIsDownloadingZip(true);
+    setError(null);
+    try {
+      await downloadMetadataZip(collectionId, `${detail.slug}-metadata.zip`);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to download metadata');
+    } finally {
+      setIsDownloadingZip(false);
+    }
+  };
 
   const handleWalrusUpload = async () => {
     if (!collectionId) return;
@@ -717,8 +808,77 @@ export function CreateWizard() {
             )}
 
             {walrusComplete && (
-              <div className="bg-emerald-900/20 border border-emerald-700/40 rounded-xl p-4 text-sm text-emerald-200">
-                All NFT images stored on Walrus. Metadata export coming in PR-7.
+              <div className="bg-emerald-900/20 border border-emerald-700/40 rounded-xl p-4 text-sm text-emerald-200 mb-4">
+                All NFT images stored on Walrus.
+              </div>
+            )}
+
+            {walrusComplete && !metadataComplete && (
+              <div className="bg-ripple-900/40 border border-ripple-700/50 rounded-2xl p-8">
+                <div className="flex items-center gap-3 mb-4">
+                  <FileJson className="w-6 h-6 text-ripple-400" />
+                  <h3 className="text-lg font-semibold">Generate Metadata</h3>
+                </div>
+                <p className="text-ripple-300 text-sm mb-6">
+                  Build Sui-compatible metadata JSON for each NFT, validate against schema, and
+                  upload to Walrus.
+                </p>
+
+                {isGeneratingMetadata && metadataStatus && (
+                  <div className="max-w-md mb-6">
+                    <div className="flex justify-between text-sm text-ripple-400 mb-2">
+                      <span className="capitalize">{metadataStatus.phase}…</span>
+                      <span>
+                        {metadataStatus.progress} / {metadataStatus.total}
+                      </span>
+                    </div>
+                    <div className="h-2 bg-ripple-950/50 rounded-full overflow-hidden">
+                      <div
+                        className="h-full bg-ripple-400 transition-all duration-500"
+                        style={{
+                          width: `${metadataStatus.total ? (metadataStatus.progress / metadataStatus.total) * 100 : 0}%`,
+                        }}
+                      />
+                    </div>
+                  </div>
+                )}
+
+                {!isGeneratingMetadata && (
+                  <button
+                    onClick={handleMetadataGenerate}
+                    className="flex items-center gap-2 bg-ripple-500 hover:bg-ripple-400 text-white px-6 py-3 rounded-xl font-medium transition-colors"
+                  >
+                    <FileJson className="w-4 h-4" />
+                    Generate Metadata
+                  </button>
+                )}
+              </div>
+            )}
+
+            {metadataComplete && metadataSummary && (
+              <div className="bg-ripple-900/40 border border-ripple-700/50 rounded-2xl p-8">
+                <div className="flex items-center justify-between mb-4">
+                  <div className="flex items-center gap-3">
+                    <FileJson className="w-6 h-6 text-emerald-400" />
+                    <h3 className="text-lg font-semibold">Metadata Ready</h3>
+                  </div>
+                  <button
+                    onClick={handleDownloadZip}
+                    disabled={isDownloadingZip}
+                    className="flex items-center gap-2 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white px-4 py-2 rounded-lg text-sm"
+                  >
+                    {isDownloadingZip ? (
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                    ) : (
+                      <Download className="w-4 h-4" />
+                    )}
+                    Download ZIP
+                  </button>
+                </div>
+                <p className="text-ripple-300 text-sm">
+                  {metadataSummary.generated} metadata files generated
+                  {metadataSummary.uploaded > 0 && ` · ${metadataSummary.uploaded} on Walrus`}
+                </p>
               </div>
             )}
 
