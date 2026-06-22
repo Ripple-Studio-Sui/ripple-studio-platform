@@ -1,19 +1,21 @@
 import { Worker } from 'bullmq';
 import IORedis from 'ioredis';
 import { GenerationProcessor } from './generation/processor';
+import { WalrusUploadProcessor } from './walrus/processor';
 import { prisma } from './prisma';
 
 const connection = new IORedis(process.env.REDIS_URL ?? 'redis://localhost:6379', {
   maxRetriesPerRequest: null,
 });
 
-const processor = new GenerationProcessor(prisma);
+const generationProcessor = new GenerationProcessor(prisma);
+const walrusProcessor = new WalrusUploadProcessor(prisma);
 
 const generationWorker = new Worker(
   'nft-generation',
   async (job) => {
     console.log(`[generation] Starting job ${job.id} for collection ${job.data.collectionId}`);
-    const result = await processor.process(job.data);
+    const result = await generationProcessor.process(job.data);
     console.log(`[generation] Completed: ${result.generated} NFTs (${result.duplicatesSkipped} dupes skipped)`);
     return result;
   },
@@ -23,10 +25,12 @@ const generationWorker = new Worker(
 const walrusWorker = new Worker(
   'walrus-upload',
   async (job) => {
-    console.log(`[walrus] Processing job ${job.id}:`, job.data);
-    return { status: 'pending', message: 'Walrus upload coming in PR-6' };
+    console.log(`[walrus] Starting job ${job.id} for collection ${job.data.collectionId}`);
+    const result = await walrusProcessor.process(job.data);
+    console.log(`[walrus] Completed: ${result.uploaded} uploaded, ${result.failed} failed`);
+    return result;
   },
-  { connection },
+  { connection, concurrency: 1 },
 );
 
 generationWorker.on('completed', (job) => {
@@ -37,10 +41,14 @@ generationWorker.on('failed', (job, err) => {
   console.error(`[generation] Job ${job?.id} failed:`, err.message);
 });
 
+walrusWorker.on('completed', (job) => {
+  console.log(`[walrus] Job ${job.id} completed`);
+});
+
 walrusWorker.on('failed', (job, err) => {
   console.error(`[walrus] Job ${job?.id} failed:`, err.message);
 });
 
 console.log('Ripple Studio workers started');
 console.log('  - nft-generation queue (concurrency: 2)');
-console.log('  - walrus-upload queue');
+console.log('  - walrus-upload queue (concurrency: 1)');

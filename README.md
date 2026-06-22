@@ -125,7 +125,8 @@ Upload the parent folder in the create wizard (Step 2).
 🟢 **PR-3 complete** — zkLogin authentication (Google + Apple)  
 🟢 **PR-4 complete** — Collection builder wizard with trait upload  
 🟢 **PR-5 complete** — NFT generation worker (Sharp compositing + rarity)  
-🔜 **PR-6 next** — Walrus storage upload
+🟢 **PR-6 complete** — Walrus storage upload (batch pipeline + cost estimate)  
+🔜 **PR-7 next** — Metadata engine
 
 ## License
 

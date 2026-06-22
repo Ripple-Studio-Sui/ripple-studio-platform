@@ -22,7 +22,17 @@ import {
   listGeneratedNfts,
   startGeneration,
 } from '@/lib/generation';
-import type { GenerationJobStatus, NftItemPreview } from '@ripple-studio/shared';
+import {
+  getWalrusCostEstimate,
+  getWalrusUploadStatus,
+  startWalrusUpload,
+} from '@/lib/walrus';
+import type {
+  GenerationJobStatus,
+  NftItemPreview,
+  WalrusCostEstimate,
+  WalrusUploadJobStatus,
+} from '@ripple-studio/shared';
 import { countCombinations, generatePreviewCombinations } from '@/lib/preview';
 import {
   ArrowLeft,
@@ -30,6 +40,7 @@ import {
   FolderUp,
   GripVertical,
   Layers,
+  CloudUpload,
   Loader2,
   Sparkles,
 } from 'lucide-react';
@@ -54,6 +65,10 @@ export function CreateWizard() {
   const [genStatus, setGenStatus] = useState<GenerationJobStatus | null>(null);
   const [generatedNfts, setGeneratedNfts] = useState<NftItemPreview[]>([]);
   const [isGenerating, setIsGenerating] = useState(false);
+  const [walrusStatus, setWalrusStatus] = useState<WalrusUploadJobStatus | null>(null);
+  const [walrusEstimate, setWalrusEstimate] = useState<WalrusCostEstimate | null>(null);
+  const [isUploadingWalrus, setIsUploadingWalrus] = useState(false);
+  const [walrusComplete, setWalrusComplete] = useState(false);
 
   const [previewSeed, setPreviewSeed] = useState(0);
   const previews = useMemo(
@@ -234,6 +249,66 @@ export function CreateWizard() {
 
     return () => clearInterval(interval);
   }, [collectionId, isGenerating, genStatus?.status, refreshDetail]);
+
+  useEffect(() => {
+    if (!collectionId || detail?.status !== 'generated') return;
+    getWalrusCostEstimate(collectionId)
+      .then(setWalrusEstimate)
+      .catch(() => {});
+    getWalrusUploadStatus(collectionId)
+      .then((status) => {
+        setWalrusStatus(status);
+        if (status.status === 'completed' && status.uploaded > 0) {
+          setWalrusComplete(true);
+        }
+      })
+      .catch(() => {});
+  }, [collectionId, detail?.status]);
+
+  useEffect(() => {
+    if (!collectionId || !isUploadingWalrus) return;
+    if (walrusStatus?.status === 'completed' || walrusStatus?.status === 'failed') return;
+
+    const interval = setInterval(async () => {
+      try {
+        const status = await getWalrusUploadStatus(collectionId);
+        setWalrusStatus(status);
+        if (status.status === 'completed') {
+          setIsUploadingWalrus(false);
+          setWalrusComplete(true);
+          const nfts = await listGeneratedNfts(collectionId, 1, 12);
+          setGeneratedNfts(nfts.items);
+        }
+        if (status.status === 'failed') {
+          setIsUploadingWalrus(false);
+          setError(status.error ?? 'Walrus upload failed');
+        }
+      } catch {
+        /* retry next tick */
+      }
+    }, 2000);
+
+    return () => clearInterval(interval);
+  }, [collectionId, isUploadingWalrus, walrusStatus?.status]);
+
+  const handleWalrusUpload = async () => {
+    if (!collectionId) return;
+    setIsUploadingWalrus(true);
+    setError(null);
+    try {
+      const status = await startWalrusUpload(collectionId);
+      setWalrusStatus(status);
+      if (status.status === 'completed') {
+        setIsUploadingWalrus(false);
+        setWalrusComplete(true);
+        const nfts = await listGeneratedNfts(collectionId, 1, 12);
+        setGeneratedNfts(nfts.items);
+      }
+    } catch (err) {
+      setIsUploadingWalrus(false);
+      setError(err instanceof Error ? err.message : 'Failed to start Walrus upload');
+    }
+  };
 
   const handleGenerate = async () => {
     if (!collectionId) return;
@@ -578,6 +653,74 @@ export function CreateWizard() {
                 </div>
               )}
             </div>
+
+            {detail.status === 'generated' && !walrusComplete && (
+              <div className="bg-ripple-900/40 border border-ripple-700/50 rounded-2xl p-8">
+                <div className="flex items-center gap-3 mb-4">
+                  <CloudUpload className="w-6 h-6 text-ripple-400" />
+                  <h3 className="text-lg font-semibold">Store on Walrus</h3>
+                </div>
+                <p className="text-ripple-300 text-sm mb-6">
+                  Upload generated images to decentralized Walrus storage. Images will be served via
+                  the Walrus aggregator CDN.
+                </p>
+
+                {walrusEstimate && walrusEstimate.nftCount > 0 && (
+                  <div className="grid grid-cols-3 gap-4 max-w-lg mb-6 text-sm">
+                    <div className="bg-ripple-950/50 rounded-xl p-4">
+                      <p className="text-ripple-400">NFTs</p>
+                      <p className="text-lg font-bold">{walrusEstimate.nftCount}</p>
+                    </div>
+                    <div className="bg-ripple-950/50 rounded-xl p-4">
+                      <p className="text-ripple-400">Size</p>
+                      <p className="text-lg font-bold">
+                        {(walrusEstimate.totalBytes / 1024 / 1024).toFixed(1)} MB
+                      </p>
+                    </div>
+                    <div className="bg-ripple-950/50 rounded-xl p-4">
+                      <p className="text-ripple-400">Est. cost</p>
+                      <p className="text-lg font-bold">${walrusEstimate.estimatedCostUsd.toFixed(4)}</p>
+                    </div>
+                  </div>
+                )}
+
+                {isUploadingWalrus && walrusStatus && (
+                  <div className="max-w-md mb-6">
+                    <div className="flex justify-between text-sm text-ripple-400 mb-2">
+                      <span>Uploading to Walrus…</span>
+                      <span>
+                        {walrusStatus.uploaded} / {walrusStatus.total}
+                      </span>
+                    </div>
+                    <div className="h-2 bg-ripple-950/50 rounded-full overflow-hidden">
+                      <div
+                        className="h-full bg-emerald-500 transition-all duration-500"
+                        style={{
+                          width: `${walrusStatus.total ? (walrusStatus.uploaded / walrusStatus.total) * 100 : 0}%`,
+                        }}
+                      />
+                    </div>
+                  </div>
+                )}
+
+                {!isUploadingWalrus && (
+                  <button
+                    onClick={handleWalrusUpload}
+                    disabled={walrusEstimate?.nftCount === 0}
+                    className="flex items-center gap-2 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white px-6 py-3 rounded-xl font-medium transition-colors"
+                  >
+                    <CloudUpload className="w-4 h-4" />
+                    Store on Walrus
+                  </button>
+                )}
+              </div>
+            )}
+
+            {walrusComplete && (
+              <div className="bg-emerald-900/20 border border-emerald-700/40 rounded-xl p-4 text-sm text-emerald-200">
+                All NFT images stored on Walrus. Metadata export coming in PR-7.
+              </div>
+            )}
 
             {generatedNfts.length > 0 && (
               <div>

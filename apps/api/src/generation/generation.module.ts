@@ -8,6 +8,6 @@ import { QueueService } from './queue.service';
   imports: [AuthModule],
   controllers: [GenerationController],
   providers: [GenerationService, QueueService],
-  exports: [GenerationService],
+  exports: [GenerationService, QueueService],
 })
 export class GenerationModule {}
