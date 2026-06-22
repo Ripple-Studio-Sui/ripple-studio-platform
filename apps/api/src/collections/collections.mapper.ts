@@ -1,5 +1,13 @@
-import type { Collection as PrismaCollection } from '@prisma/client';
-import type { Collection } from '@ripple-studio/shared';
+import type {
+  Collection as PrismaCollection,
+  TraitAsset as PrismaTraitAsset,
+  TraitLayer as PrismaTraitLayer,
+} from '@prisma/client';
+import type { Collection, CollectionDetail, TraitAsset, TraitLayerWithAssets } from '@ripple-studio/shared';
+
+type LayerWithAssets = PrismaTraitLayer & { assets: PrismaTraitAsset[] };
+
+type CollectionWithLayers = PrismaCollection & { traitLayers: LayerWithAssets[] };
 
 export function toCollectionDto(record: PrismaCollection): Collection {
   return {
@@ -13,6 +21,45 @@ export function toCollectionDto(record: PrismaCollection): Collection {
     royaltyBps: record.royaltyBps,
     createdAt: record.createdAt.toISOString(),
     updatedAt: record.updatedAt.toISOString(),
+  };
+}
+
+export function toTraitAssetDto(asset: PrismaTraitAsset, apiUrl: string): TraitAsset {
+  return {
+    id: asset.id,
+    layerId: asset.layerId,
+    name: asset.name,
+    rarityWeight: asset.rarityWeight,
+    filePath: asset.filePath,
+    previewUrl: asset.filePath ? `${apiUrl}/uploads/${asset.filePath}` : undefined,
+  };
+}
+
+export function toLayerDto(layer: LayerWithAssets, apiUrl: string): TraitLayerWithAssets {
+  return {
+    id: layer.id,
+    name: layer.name,
+    displayOrder: layer.displayOrder,
+    isRequired: layer.isRequired,
+    blendMode: layer.blendMode,
+    assets: layer.assets.map((a) => toTraitAssetDto(a, apiUrl)),
+  };
+}
+
+export function toCollectionDetailDto(record: CollectionWithLayers, apiUrl: string): CollectionDetail {
+  const layers = record.traitLayers
+    .sort((a, b) => a.displayOrder - b.displayOrder)
+    .map((l) => toLayerDto(l, apiUrl));
+
+  const possibleCombinations = layers.reduce((product, layer) => {
+    const count = layer.assets.length || 1;
+    return layer.isRequired ? product * count : product;
+  }, 1);
+
+  return {
+    ...toCollectionDto(record),
+    traitLayers: layers,
+    possibleCombinations,
   };
 }
 

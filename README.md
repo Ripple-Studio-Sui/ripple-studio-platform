@@ -87,6 +87,25 @@ npm run db:migrate   # Create new migrations
 npm run db:seed      # Seed demo user + sample collection
 ```
 
+### Trait folder structure
+
+Organize traits as `LayerName/trait-file.png`:
+
+```
+my-collection/
+├── Background/
+│   ├── blue.png
+│   └── neon.png
+├── Eyes/
+│   ├── normal.png
+│   └── laser.png
+└── Hat/
+    ├── cap.png
+    └── crown.png
+```
+
+Upload the parent folder in the create wizard (Step 2).
+
 | Service | URL |
 |---------|-----|
 | Web | http://localhost:3000 |
@@ -98,7 +117,8 @@ npm run db:seed      # Seed demo user + sample collection
 🟢 **PR-1 complete** — Monorepo scaffold  
 🟢 **PR-2 complete** — Database schema & Prisma migrations  
 🟢 **PR-3 complete** — zkLogin authentication (Google + Apple)  
-🔜 **PR-4 next** — Collection builder UI with trait upload
+🟢 **PR-4 complete** — Collection builder wizard with trait upload  
+🔜 **PR-5 next** — NFT generation worker
 
 ## License
 

@@ -35,6 +35,9 @@ yarn-error.log*
 # Testing
 coverage/
 
+# Uploads (staging storage)
+uploads/
+
 # Misc
 .vercel/
 *.local

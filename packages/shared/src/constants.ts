@@ -25,6 +25,29 @@ export const API_ROUTES = {
   authZkLoginComplete: '/auth/zklogin/complete',
 } as const;
 
+export const WIZARD_STEPS = [
+  'details',
+  'upload',
+  'layers',
+  'rarity',
+  'preview',
+  'generate',
+] as const;
+
+export type WizardStep = (typeof WIZARD_STEPS)[number];
+
+export const WIZARD_STEP_LABELS: Record<WizardStep, string> = {
+  details: 'Collection info',
+  upload: 'Upload traits',
+  layers: 'Configure layers',
+  rarity: 'Set rarity',
+  preview: 'Preview',
+  generate: 'Generate',
+};
+
+export const MAX_PREVIEW_COMBOS = 100;
+export const PREVIEW_SAMPLE_COUNT = 12;
+
 export const ZKLOGIN_PROVIDERS = {
   google: {
     iss: 'https://accounts.google.com',
