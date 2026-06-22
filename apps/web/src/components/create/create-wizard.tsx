@@ -24,7 +24,6 @@ import {
 } from '@/lib/generation';
 import type { GenerationJobStatus, NftItemPreview } from '@ripple-studio/shared';
 import { countCombinations, generatePreviewCombinations } from '@/lib/preview';
-import { cn } from '@/lib/utils';
 import {
   ArrowLeft,
   ArrowRight,
