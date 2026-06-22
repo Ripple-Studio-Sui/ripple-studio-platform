@@ -1,0 +1,22 @@
+{
+  "name": "@ripple-studio/memory",
+  "version": "0.0.0",
+  "private": true,
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@ripple-studio/shared": "*"
+  },
+  "optionalDependencies": {
+    "@mysten-incubation/memwal": "^0.1.0"
+  },
+  "devDependencies": {
+    "@ripple-studio/typescript-config": "*",
+    "typescript": "^5.8.3"
+  }
+}

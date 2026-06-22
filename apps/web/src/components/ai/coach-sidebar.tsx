@@ -3,6 +3,8 @@
 import { useAuth } from '@/lib/auth/auth-context';
 import { useCoachContext } from '@/lib/ai/coach-context';
 import { streamChat } from '@/lib/ai';
+import { getMemoryStatus, syncMemory } from '@/lib/memory';
+import type { MemoryStatus } from '@ripple-studio/shared';
 import type { AiMessage, ChatStreamEvent } from '@ripple-studio/shared';
 import { Loader2, MessageCircle, Send, Sparkles, X } from 'lucide-react';
 import { usePathname } from 'next/navigation';
@@ -25,6 +27,7 @@ export function CoachSidebar() {
   const [streaming, setStreaming] = useState(false);
   const [streamBuffer, setStreamBuffer] = useState('');
   const [error, setError] = useState<string | null>(null);
+  const [memoryStatus, setMemoryStatus] = useState<MemoryStatus | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
 
@@ -95,6 +98,11 @@ export function CoachSidebar() {
     [streaming, sessionId, collectionId],
   );
 
+  useEffect(() => {
+    if (!open) return;
+    getMemoryStatus().then(setMemoryStatus).catch(() => {});
+  }, [open]);
+
   if (hidden) return null;
 
   return (
@@ -123,6 +131,12 @@ export function CoachSidebar() {
                   <p className="font-semibold text-sm">Creator Coach</p>
                   <p className="text-xs text-ripple-400 capitalize">
                     {user?.experienceMode ?? 'beginner'} mode
+                    {memoryStatus && (
+                      <span className="text-emerald-400/80">
+                        {' '}
+                        · {memoryStatus.primary} memory
+                      </span>
+                    )}
                   </p>
                 </div>
               </div>
@@ -227,19 +241,27 @@ export function CoachSidebar() {
                   )}
                 </button>
               </div>
-              {sessionId && (
+              <div className="flex gap-3 mt-2">
+                {sessionId && (
+                  <button
+                    onClick={() => {
+                      setSessionId(undefined);
+                      setMessages([]);
+                      setStreamBuffer('');
+                      setError(null);
+                    }}
+                    className="text-xs text-ripple-500 hover:text-ripple-300"
+                  >
+                    New conversation
+                  </button>
+                )}
                 <button
-                  onClick={() => {
-                    setSessionId(undefined);
-                    setMessages([]);
-                    setStreamBuffer('');
-                    setError(null);
-                  }}
-                  className="text-xs text-ripple-500 hover:text-ripple-300 mt-2"
+                  onClick={() => syncMemory().catch(() => {})}
+                  className="text-xs text-ripple-500 hover:text-ripple-300"
                 >
-                  New conversation
+                  Sync memory
                 </button>
-              )}
+              </div>
             </footer>
           </aside>
         </div>

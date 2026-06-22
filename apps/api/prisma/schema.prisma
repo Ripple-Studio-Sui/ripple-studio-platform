@@ -140,6 +140,7 @@ model User {
   wallets             Wallet[]
   collections         Collection[]
   memorySpaces        MemorySpace[]
+  memoryEntries       MemoryEntry[]
   payments            Payment[]
   aiSessions          AiSession[]
   saltVault           SaltVault?    @relation(fields: [saltRefId], references: [id])
@@ -182,6 +183,23 @@ model MemorySpace {
 
   @@unique([userId, spaceType])
   @@map("memory_spaces")
+}
+
+model MemoryEntry {
+  id           String    @id @default(uuid()) @db.Uuid
+  userId       String    @map("user_id") @db.Uuid
+  spaceType    String    @map("space_type") @db.VarChar(50)
+  content      String    @db.Text
+  metadata     Json?
+  source       String    @default("postgres") @db.VarChar(20)
+  memwalBlobId String?   @map("memwal_blob_id") @db.VarChar(100)
+  createdAt    DateTime  @default(now()) @map("created_at") @db.Timestamptz
+  expiresAt    DateTime? @map("expires_at") @db.Timestamptz
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, spaceType, createdAt(sort: Desc)])
+  @@map("memory_entries")
 }
 
 // ─── Collections ─────────────────────────────────────────────────────────────

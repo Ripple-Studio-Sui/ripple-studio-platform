@@ -6,6 +6,7 @@ import { GenerationModule } from './generation/generation.module';
 import { WalrusModule } from './walrus/walrus.module';
 import { MetadataModule } from './metadata/metadata.module';
 import { AiModule } from './ai/ai.module';
+import { MemoryModule } from './memory/memory.module';
 import { HealthModule } from './health/health.module';
 import { PrismaModule } from './prisma/prisma.module';
 
@@ -19,6 +20,7 @@ import { PrismaModule } from './prisma/prisma.module';
     WalrusModule,
     MetadataModule,
     AiModule,
+    MemoryModule,
   ],
   controllers: [AppController],
 })

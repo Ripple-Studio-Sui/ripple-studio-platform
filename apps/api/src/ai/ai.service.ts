@@ -4,8 +4,9 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import type { AiMessage, AiSession, CreateAiSessionInput } from '@ripple-studio/shared';
+import { MemoryService } from '../memory/memory.service';
 import { PrismaService } from '../prisma/prisma.service';
-import { CreatorCoachAgent, type CoachContext } from './creator-coach.agent';
+import { CreatorCoachAgent } from './creator-coach.agent';
 import { OpenAiService } from './openai.service';
 
 @Injectable()
@@ -14,6 +15,7 @@ export class AiService {
     private readonly prisma: PrismaService,
     private readonly openai: OpenAiService,
     private readonly coach: CreatorCoachAgent,
+    private readonly memory: MemoryService,
   ) {}
 
   async createSession(userId: string, input: CreateAiSessionInput = {}): Promise<AiSession> {
@@ -97,7 +99,7 @@ export class AiService {
       data: { sessionId: session.id, role: 'user', content: message },
     });
 
-    const [user, history, coachContext] = await Promise.all([
+    const [user, history, coachContext, memoryContext] = await Promise.all([
       this.prisma.user.findUnique({ where: { id: userId } }),
       this.prisma.aiMessage.findMany({
         where: { sessionId: session.id },
@@ -105,6 +107,7 @@ export class AiService {
         take: 20,
       }),
       this.buildCoachContext(userId, session.collectionId ?? collectionId),
+      this.memory.getCoachContext(userId, message),
     ]);
 
     const chatMessages = this.coach.buildMessages(
@@ -118,6 +121,7 @@ export class AiService {
       {
         experienceMode: user?.experienceMode ?? 'beginner',
         displayName: user?.displayName,
+        memoryContext: memoryContext || undefined,
         collection: coachContext,
       },
     );
@@ -138,6 +142,15 @@ export class AiService {
     const assistantMessage = await this.prisma.aiMessage.create({
       data: { sessionId: session.id, role: 'assistant', content: fullResponse },
     });
+
+    void this.memory
+      .rememberConversation(
+        userId,
+        message,
+        fullResponse,
+        session.collectionId ?? collectionId ?? undefined,
+      )
+      .catch(() => {});
 
     yield { type: 'done', messageId: assistantMessage.id };
   }

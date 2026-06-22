@@ -128,7 +128,8 @@ Upload the parent folder in the create wizard (Step 2).
 🟢 **PR-6 complete** — Walrus storage upload (batch pipeline + cost estimate)  
 🟢 **PR-7 complete** — Metadata engine (Sui schema, Walrus upload, ZIP export)  
 🟢 **PR-8 complete** — AI Creator Coach (SSE streaming + Sui docs RAG)  
-🔜 **PR-9 next** — MemWal integration
+🟢 **PR-9 complete** — MemWal memory layer (PostgreSQL fallback + optional hybrid)  
+🔜 **PR-10 next** — Multi-agent expansion
 
 ## License
 

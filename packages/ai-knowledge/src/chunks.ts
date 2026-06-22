@@ -63,10 +63,10 @@ export const KNOWLEDGE_CHUNKS: KnowledgeChunk[] = [
       'Walrus storage costs ~$0.023/GB/month paid in WAL. SUI is needed for on-chain transactions (deploy, mint). Testnet WAL and SUI are free via faucets. Ripple Studio shows Walrus cost estimates before upload. Generation and metadata are platform-computed; only storage and deployment incur chain costs.',
   },
   {
-    id: 'memwal-preview',
-    topic: 'MemWal Memory (Coming Soon)',
-    keywords: ['memwal', 'memory', 'agent', 'context', 'personalization'],
+    id: 'memwal-memory',
+    topic: 'MemWal Creator Memory',
+    keywords: ['memwal', 'memory', 'agent', 'context', 'personalization', 'remember', 'recall'],
     content:
-      'MemWal provides persistent AI memory spaces per creator on Walrus + Sui. PR-9 will integrate MemWal for brand voice, past collection context, and conversation history. Until then, the Creator Coach uses session history and collection context from PostgreSQL.',
+      'Ripple Studio uses MemWal-backed memory spaces per creator: profile (brand voice), collections (past projects), conversations (chat history), and preferences. PostgreSQL caches all memories as fallback. The Creator Coach recalls relevant memories to personalize advice — e.g. "create another like Cyber Explorers" loads past collection context.',
   },
 ];

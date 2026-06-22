@@ -39,6 +39,6 @@ data: [DONE]
 
 The **Creator Coach** sidebar appears on authenticated pages (dashboard, create wizard, collection view). Click the floating button to open chat.
 
-## MemWal
+## MemWal Memory
 
-Persistent cross-session memory arrives in PR-9. Until then, conversation history is stored in PostgreSQL (`ai_sessions` + `ai_messages`).
+PR-9 integrates persistent creator memory. The Coach recalls profile, collection, and conversation memories before each response. See `docs/MEMWAL_SETUP.md` for configuration.

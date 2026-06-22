@@ -6,6 +6,7 @@ import type { ChatMessage } from './openai.service';
 export interface CoachContext {
   experienceMode: ExperienceMode;
   displayName?: string | null;
+  memoryContext?: string;
   collection?: {
     id: string;
     name: string;
@@ -50,6 +51,13 @@ export class CreatorCoachAgent {
 
     if (context.displayName) {
       parts.push(`Creator: ${context.displayName}`);
+    }
+
+    if (context.memoryContext) {
+      parts.push(
+        'Creator memory (from previous sessions and projects — use to personalize advice):',
+        context.memoryContext,
+      );
     }
 
     if (context.collection) {
