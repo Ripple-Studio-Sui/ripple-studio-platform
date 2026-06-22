@@ -42,9 +42,12 @@ export default function HomePage() {
           >
             Dashboard
           </Link>
-          <button className="bg-ripple-500 hover:bg-ripple-400 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors">
+          <Link
+            href="/login"
+            className="bg-ripple-500 hover:bg-ripple-400 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors"
+          >
             Sign in
-          </button>
+          </Link>
         </div>
       </nav>
 

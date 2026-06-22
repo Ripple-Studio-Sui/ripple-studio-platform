@@ -36,6 +36,7 @@ Help creators go from **idea → design → generation → storage → deploymen
 ## Documentation
 
 - [Platform Design Document](./docs/DESIGN.md) — Full system architecture, database schema, roadmap
+- [Auth Setup Guide](./docs/AUTH_SETUP.md) — Google/Apple OAuth + zkLogin configuration
 
 ## Monorepo Structure
 
@@ -96,7 +97,8 @@ npm run db:seed      # Seed demo user + sample collection
 
 🟢 **PR-1 complete** — Monorepo scaffold  
 🟢 **PR-2 complete** — Database schema & Prisma migrations  
-🔜 **PR-3 next** — zkLogin authentication (Google + Apple)
+🟢 **PR-3 complete** — zkLogin authentication (Google + Apple)  
+🔜 **PR-4 next** — Collection builder UI with trait upload
 
 ## License
 

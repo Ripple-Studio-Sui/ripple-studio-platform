@@ -1,9 +1,12 @@
+'use client';
+
 import { MVP_MAX_SUPPLY } from '@ripple-studio/shared';
+import { AuthGuard } from '@/components/auth-guard';
 import Link from 'next/link';
 
 const steps = ['Upload traits', 'Configure layers', 'Set rarity', 'Preview', 'Generate'];
 
-export default function CreatePage() {
+function CreateContent() {
   return (
     <main className="min-h-screen p-8">
       <div className="max-w-4xl mx-auto">
@@ -41,5 +44,13 @@ export default function CreatePage() {
         </div>
       </div>
     </main>
+  );
+}
+
+export default function CreatePage() {
+  return (
+    <AuthGuard>
+      <CreateContent />
+    </AuthGuard>
   );
 }

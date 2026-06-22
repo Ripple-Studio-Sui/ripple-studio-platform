@@ -10,6 +10,7 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "@mysten/sui": "^1.30.0",
     "@ripple-studio/shared": "*",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
