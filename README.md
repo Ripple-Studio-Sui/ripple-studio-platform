@@ -129,7 +129,8 @@ Upload the parent folder in the create wizard (Step 2).
 🟢 **PR-7 complete** — Metadata engine (Sui schema, Walrus upload, ZIP export)  
 🟢 **PR-8 complete** — AI Creator Coach (SSE streaming + Sui docs RAG)  
 🟢 **PR-9 complete** — MemWal memory layer (PostgreSQL fallback + optional hybrid)  
-🔜 **PR-10 next** — Multi-agent expansion
+🟢 **PR-10 complete** — Multi-agent expansion (intent router + 6 specialists)  
+🔜 **PR-11 next** — Sui Deployment Service
 
 ## License
 

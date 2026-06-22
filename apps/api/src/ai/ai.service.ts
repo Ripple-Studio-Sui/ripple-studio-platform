@@ -3,10 +3,10 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import type { AiMessage, AiSession, CreateAiSessionInput } from '@ripple-studio/shared';
+import type { AiAgentType, AiMessage, AiSession, CreateAiSessionInput } from '@ripple-studio/shared';
 import { MemoryService } from '../memory/memory.service';
 import { PrismaService } from '../prisma/prisma.service';
-import { CreatorCoachAgent } from './creator-coach.agent';
+import { AgentOrchestrator } from './agents/orchestrator.service';
 import { OpenAiService } from './openai.service';
 
 @Injectable()
@@ -14,9 +14,13 @@ export class AiService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly openai: OpenAiService,
-    private readonly coach: CreatorCoachAgent,
+    private readonly orchestrator: AgentOrchestrator,
     private readonly memory: MemoryService,
   ) {}
+
+  listAgents() {
+    return this.orchestrator.listAgents();
+  }
 
   async createSession(userId: string, input: CreateAiSessionInput = {}): Promise<AiSession> {
     if (input.collectionId) {
@@ -27,7 +31,7 @@ export class AiService {
       data: {
         userId,
         collectionId: input.collectionId,
-        agentType: 'creator_coach',
+        agentType: input.agentType ?? 'creator_coach',
       },
       include: { _count: { select: { messages: true } } },
     });
@@ -37,7 +41,7 @@ export class AiService {
 
   async listSessions(userId: string): Promise<AiSession[]> {
     const sessions = await this.prisma.aiSession.findMany({
-      where: { userId, agentType: 'creator_coach' },
+      where: { userId },
       orderBy: { createdAt: 'desc' },
       take: 20,
       include: { _count: { select: { messages: true } } },
@@ -68,7 +72,16 @@ export class AiService {
     message: string,
     sessionId?: string,
     collectionId?: string,
-  ): AsyncGenerator<{ type: string; sessionId?: string; content?: string; messageId?: string; message?: string }> {
+    preferredAgent?: AiAgentType | 'auto',
+  ): AsyncGenerator<{
+    type: string;
+    sessionId?: string;
+    agentType?: AiAgentType;
+    agentName?: string;
+    content?: string;
+    messageId?: string;
+    message?: string;
+  }> {
     let session = sessionId
       ? await this.prisma.aiSession.findUnique({ where: { id: sessionId } })
       : null;
@@ -77,40 +90,52 @@ export class AiService {
       throw new ForbiddenException('Access denied');
     }
 
+    const agentType = this.orchestrator.resolveAgent(
+      message,
+      preferredAgent === 'auto' || !preferredAgent ? undefined : preferredAgent,
+    );
+    const agentInfo = this.orchestrator.getAgentInfo(agentType);
+
     if (!session) {
       session = await this.prisma.aiSession.create({
         data: {
           userId,
           collectionId: collectionId ?? null,
-          agentType: 'creator_coach',
+          agentType,
         },
       });
-    } else if (collectionId && !session.collectionId) {
-      await this.prisma.aiSession.update({
-        where: { id: session.id },
-        data: { collectionId },
-      });
-      session.collectionId = collectionId;
+    } else {
+      const updates: { collectionId?: string; agentType?: AiAgentType } = {};
+      if (collectionId && !session.collectionId) updates.collectionId = collectionId;
+      if (session.agentType !== agentType) updates.agentType = agentType;
+      if (Object.keys(updates).length) {
+        session = await this.prisma.aiSession.update({
+          where: { id: session.id },
+          data: updates,
+        });
+      }
     }
 
     yield { type: 'session', sessionId: session.id };
+    yield { type: 'agent', agentType, agentName: agentInfo.name };
 
     await this.prisma.aiMessage.create({
       data: { sessionId: session.id, role: 'user', content: message },
     });
 
-    const [user, history, coachContext, memoryContext] = await Promise.all([
+    const [user, history, collectionContext, memoryContext] = await Promise.all([
       this.prisma.user.findUnique({ where: { id: userId } }),
       this.prisma.aiMessage.findMany({
         where: { sessionId: session.id },
         orderBy: { createdAt: 'asc' },
         take: 20,
       }),
-      this.buildCoachContext(userId, session.collectionId ?? collectionId),
+      this.buildCollectionContext(userId, session.collectionId ?? collectionId),
       this.memory.getCoachContext(userId, message),
     ]);
 
-    const chatMessages = this.coach.buildMessages(
+    const chatMessages = this.orchestrator.buildMessages(
+      agentType,
       message,
       history
         .filter((m) => m.role !== 'system')
@@ -122,7 +147,7 @@ export class AiService {
         experienceMode: user?.experienceMode ?? 'beginner',
         displayName: user?.displayName,
         memoryContext: memoryContext || undefined,
-        collection: coachContext,
+        collection: collectionContext,
       },
     );
 
@@ -155,34 +180,39 @@ export class AiService {
     yield { type: 'done', messageId: assistantMessage.id };
   }
 
-  private async buildCoachContext(userId: string, collectionId?: string | null) {
+  private async buildCollectionContext(userId: string, collectionId?: string | null) {
     if (!collectionId) return undefined;
 
     const collection = await this.prisma.collection.findFirst({
       where: { id: collectionId, userId },
       include: {
-        traitLayers: { select: { id: true } },
+        traitLayers: {
+          select: { name: true, _count: { select: { assets: true } } },
+        },
         nftItems: { select: { id: true, imageBlobId: true } },
       },
     });
 
     if (!collection) return undefined;
 
-    const [metadataCount] = await Promise.all([
-      this.prisma.metadataRecord.count({
-        where: { nftItem: { collectionId } },
-      }),
-    ]);
+    const metadataCount = await this.prisma.metadataRecord.count({
+      where: { nftItem: { collectionId } },
+    });
 
     return {
       id: collection.id,
       name: collection.name,
       status: collection.status,
       supply: collection.supply,
+      royaltyBps: collection.royaltyBps,
       layerCount: collection.traitLayers.length,
       nftCount: collection.nftItems.length,
       walrusUploaded: collection.nftItems.filter((i) => i.imageBlobId).length,
       metadataGenerated: metadataCount,
+      traitLayers: collection.traitLayers.map((l) => ({
+        name: l.name,
+        assetCount: l._count.assets,
+      })),
     };
   }
 
@@ -209,7 +239,7 @@ export class AiService {
   }): AiSession {
     return {
       id: session.id,
-      agentType: 'creator_coach',
+      agentType: (session.agentType ?? 'creator_coach') as AiSession['agentType'],
       collectionId: session.collectionId ?? undefined,
       createdAt: session.createdAt.toISOString(),
       messageCount: session._count.messages,

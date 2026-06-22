@@ -1,6 +1,6 @@
-# AI Creator Coach Setup
+# AI Assistant Setup
 
-PR-8 adds the Creator Coach — a streaming AI assistant with Sui docs RAG.
+PR-8 added the Creator Coach. PR-10 expands it into a multi-agent system with intent routing. See [AGENTS.md](./AGENTS.md) for agent types and routing behavior.
 
 ## Requirements
 
@@ -11,25 +11,28 @@ PR-8 adds the Creator Coach — a streaming AI assistant with Sui docs RAG.
 
 ## Features
 
-- **Single agent MVP** — Creator Coach (`creator_coach`)
+- **Multi-agent routing** — Creator Coach, NFT Architect, Metadata, Marketplace, Deployment, Support
+- **Auto or manual agent** — intent router picks a specialist, or pin an agent in the UI
 - **SSE streaming** — token-by-token responses via `POST /ai/chat`
 - **Sui docs RAG** — keyword retrieval over curated knowledge chunks (Sui, Walrus, zkLogin, workflow)
 - **Context-aware** — adapts to user `experienceMode` (beginner / creator / builder)
-- **Collection context** — when viewing a collection, coach knows status, supply, Walrus/metadata progress
+- **Collection context** — when viewing a collection, agents know status, supply, Walrus/metadata progress
 
 ## API Endpoints
 
 | Method | Path | Description |
 |--------|------|-------------|
+| `GET` | `/ai/agents` | List available agents |
 | `POST` | `/ai/sessions` | Create chat session |
 | `GET` | `/ai/sessions` | List recent sessions |
 | `GET` | `/ai/sessions/:id/messages` | Message history |
-| `POST` | `/ai/chat` | SSE streaming chat |
+| `POST` | `/ai/chat` | SSE streaming chat (`agentType`: `"auto"` or explicit) |
 
 ### SSE Event Format
 
 ```
 data: {"type":"session","sessionId":"..."}
+data: {"type":"agent","agentType":"metadata","agentName":"Metadata"}
 data: {"type":"token","content":"Hello"}
 data: {"type":"done","messageId":"..."}
 data: [DONE]
@@ -37,7 +40,7 @@ data: [DONE]
 
 ## UI
 
-The **Creator Coach** sidebar appears on authenticated pages (dashboard, create wizard, collection view). Click the floating button to open chat.
+The **AI Assistant** sidebar appears on authenticated pages (dashboard, create wizard, collection view). Use the agent picker for Auto routing or a fixed specialist. Routed agent name appears on each assistant reply.
 
 ## MemWal Memory
 

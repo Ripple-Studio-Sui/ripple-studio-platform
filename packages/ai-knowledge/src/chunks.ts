@@ -67,6 +67,22 @@ export const KNOWLEDGE_CHUNKS: KnowledgeChunk[] = [
     topic: 'MemWal Creator Memory',
     keywords: ['memwal', 'memory', 'agent', 'context', 'personalization', 'remember', 'recall'],
     content:
-      'Ripple Studio uses MemWal-backed memory spaces per creator: profile (brand voice), collections (past projects), conversations (chat history), and preferences. PostgreSQL caches all memories as fallback. The Creator Coach recalls relevant memories to personalize advice — e.g. "create another like Cyber Explorers" loads past collection context.',
+      'Ripple Studio uses MemWal-backed memory spaces per creator: profile (brand voice), collections (past projects), conversations (chat history), and preferences. PostgreSQL caches all memories as fallback. All AI agents recall relevant memories to personalize advice — e.g. "create another like Cyber Explorers" loads past collection context.',
+  },
+  {
+    id: 'multi-agent-routing',
+    topic: 'Multi-Agent AI Routing',
+    keywords: [
+      'agent',
+      'routing',
+      'architect',
+      'marketplace',
+      'deployment',
+      'support',
+      'specialist',
+      'auto',
+    ],
+    content:
+      'Ripple Studio routes chat to specialist agents: Creator Coach (default workflow), NFT Architect (traits/rarity/lore), Metadata (Sui Display schema and ZIP export), Marketplace (listing and pricing), Deployment (Move publish and mint), and Support (troubleshooting). Auto mode picks the best agent from keywords; you can also pin a specific agent in the AI Assistant sidebar.',
   },
 ];

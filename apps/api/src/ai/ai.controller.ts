@@ -11,6 +11,11 @@ import { AiService } from './ai.service';
 export class AiController {
   constructor(private readonly aiService: AiService) {}
 
+  @Get('agents')
+  listAgents() {
+    return this.aiService.listAgents();
+  }
+
   @Post('sessions')
   createSession(@CurrentUser() user: AuthenticatedUser, @Body() body: CreateAiSessionInput) {
     return this.aiService.createSession(user.userId, body);
@@ -43,6 +48,7 @@ export class AiController {
         body.message,
         body.sessionId,
         body.collectionId,
+        body.agentType,
       )) {
         res.write(`data: ${JSON.stringify(event)}\n\n`);
       }

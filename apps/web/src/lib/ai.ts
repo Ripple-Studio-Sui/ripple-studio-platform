@@ -1,4 +1,5 @@
 import type {
+  AgentInfo,
   AiMessage,
   AiSession,
   ChatRequest,
@@ -24,6 +25,10 @@ export async function listAiSessions(): Promise<AiSession[]> {
 
 export async function getAiMessages(sessionId: string): Promise<AiMessage[]> {
   return apiFetch<AiMessage[]>(`/ai/sessions/${sessionId}/messages`);
+}
+
+export async function listAgents(): Promise<AgentInfo[]> {
+  return apiFetch<AgentInfo[]>('/ai/agents');
 }
 
 async function authorizedFetch(path: string, options: RequestInit): Promise<Response> {
