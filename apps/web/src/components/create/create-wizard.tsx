@@ -17,6 +17,12 @@ import {
   updateLayers,
   uploadTraits,
 } from '@/lib/collections';
+import {
+  getGenerationStatus,
+  listGeneratedNfts,
+  startGeneration,
+} from '@/lib/generation';
+import type { GenerationJobStatus, NftItemPreview } from '@ripple-studio/shared';
 import { countCombinations, generatePreviewCombinations } from '@/lib/preview';
 import { cn } from '@/lib/utils';
 import {
@@ -46,6 +52,9 @@ export function CreateWizard() {
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [uploadProgress, setUploadProgress] = useState<string | null>(null);
+  const [genStatus, setGenStatus] = useState<GenerationJobStatus | null>(null);
+  const [generatedNfts, setGeneratedNfts] = useState<NftItemPreview[]>([]);
+  const [isGenerating, setIsGenerating] = useState(false);
 
   const [previewSeed, setPreviewSeed] = useState(0);
   const previews = useMemo(
@@ -200,6 +209,51 @@ export function CreateWizard() {
       refreshDetail(collectionId).catch(() => {});
     }
   }, [collectionId, step, refreshDetail]);
+
+  useEffect(() => {
+    if (!collectionId || !isGenerating) return;
+    if (genStatus?.status === 'completed' || genStatus?.status === 'failed') return;
+
+    const interval = setInterval(async () => {
+      try {
+        const status = await getGenerationStatus(collectionId);
+        setGenStatus(status);
+        if (status.status === 'completed') {
+          setIsGenerating(false);
+          const nfts = await listGeneratedNfts(collectionId, 1, 12);
+          setGeneratedNfts(nfts.items);
+          await refreshDetail(collectionId);
+        }
+        if (status.status === 'failed') {
+          setIsGenerating(false);
+          setError(status.error ?? 'Generation failed');
+        }
+      } catch {
+        /* polling error — retry next tick */
+      }
+    }, 2000);
+
+    return () => clearInterval(interval);
+  }, [collectionId, isGenerating, genStatus?.status, refreshDetail]);
+
+  const handleGenerate = async () => {
+    if (!collectionId) return;
+    setIsGenerating(true);
+    setError(null);
+    try {
+      const status = await startGeneration(collectionId);
+      setGenStatus(status);
+      if (status.status === 'completed') {
+        setIsGenerating(false);
+        const nfts = await listGeneratedNfts(collectionId, 1, 12);
+        setGeneratedNfts(nfts.items);
+        await refreshDetail(collectionId);
+      }
+    } catch (err) {
+      setIsGenerating(false);
+      setError(err instanceof Error ? err.message : 'Failed to start generation');
+    }
+  };
 
   return (
     <main className="min-h-screen p-8">
@@ -453,42 +507,101 @@ export function CreateWizard() {
 
         {/* Step: Generate */}
         {step === 'generate' && detail && (
-          <div className="bg-ripple-900/40 border border-ripple-700/50 rounded-2xl p-12 text-center">
-            <Sparkles className="w-12 h-12 text-ripple-400 mx-auto mb-4" />
-            <h2 className="text-2xl font-bold mb-2">{detail.name}</h2>
-            <p className="text-ripple-300 mb-6">
-              Ready to generate {Math.min(supply, combinations).toLocaleString()} NFTs across{' '}
-              {detail.traitLayers.length} layers
-            </p>
-            <div className="grid grid-cols-3 gap-4 max-w-md mx-auto mb-8 text-sm">
-              <div className="bg-ripple-950/50 rounded-xl p-4">
-                <p className="text-ripple-400">Supply</p>
-                <p className="text-xl font-bold">{supply}</p>
+          <div className="space-y-8">
+            <div className="bg-ripple-900/40 border border-ripple-700/50 rounded-2xl p-12 text-center">
+              <Sparkles className="w-12 h-12 text-ripple-400 mx-auto mb-4" />
+              <h2 className="text-2xl font-bold mb-2">{detail.name}</h2>
+              <p className="text-ripple-300 mb-6">
+                {detail.status === 'generated'
+                  ? `Generated ${genStatus?.generated ?? supply} NFTs successfully`
+                  : `Ready to generate ${supply.toLocaleString()} unique NFTs`}
+              </p>
+
+              <div className="grid grid-cols-3 gap-4 max-w-md mx-auto mb-8 text-sm">
+                <div className="bg-ripple-950/50 rounded-xl p-4">
+                  <p className="text-ripple-400">Supply</p>
+                  <p className="text-xl font-bold">{supply}</p>
+                </div>
+                <div className="bg-ripple-950/50 rounded-xl p-4">
+                  <p className="text-ripple-400">Layers</p>
+                  <p className="text-xl font-bold">{detail.traitLayers.length}</p>
+                </div>
+                <div className="bg-ripple-950/50 rounded-xl p-4">
+                  <p className="text-ripple-400">Royalty</p>
+                  <p className="text-xl font-bold">{(royaltyBps / 100).toFixed(1)}%</p>
+                </div>
               </div>
-              <div className="bg-ripple-950/50 rounded-xl p-4">
-                <p className="text-ripple-400">Layers</p>
-                <p className="text-xl font-bold">{detail.traitLayers.length}</p>
-              </div>
-              <div className="bg-ripple-950/50 rounded-xl p-4">
-                <p className="text-ripple-400">Royalty</p>
-                <p className="text-xl font-bold">{(royaltyBps / 100).toFixed(1)}%</p>
-              </div>
-            </div>
-            <button
-              disabled
-              className={cn(
-                'bg-ripple-700 text-ripple-300 px-8 py-4 rounded-xl font-medium cursor-not-allowed',
+
+              {isGenerating && genStatus && (
+                <div className="max-w-md mx-auto mb-8">
+                  <div className="flex justify-between text-sm text-ripple-400 mb-2">
+                    <span>Generating…</span>
+                    <span>
+                      {genStatus.progress} / {genStatus.total}
+                    </span>
+                  </div>
+                  <div className="h-2 bg-ripple-950/50 rounded-full overflow-hidden">
+                    <div
+                      className="h-full bg-ripple-400 transition-all duration-500"
+                      style={{
+                        width: `${genStatus.total ? (genStatus.progress / genStatus.total) * 100 : 0}%`,
+                      }}
+                    />
+                  </div>
+                  {genStatus.duplicatesSkipped > 0 && (
+                    <p className="text-xs text-ripple-500 mt-2">
+                      {genStatus.duplicatesSkipped} duplicates skipped
+                    </p>
+                  )}
+                </div>
               )}
-            >
-              Generate collection — coming in PR-5
-            </button>
-            <p className="text-ripple-500 text-xs mt-4">
-              Collection saved as draft ·{' '}
-              <Link href="/dashboard" className="text-ripple-400 hover:text-ripple-200">
-                Return to dashboard
-              </Link>
-            </p>
-            <button onClick={goBack} className="block mx-auto mt-6 text-ripple-400 hover:text-ripple-200 text-sm">
+
+              {detail.status !== 'generated' && !isGenerating && (
+                <button
+                  onClick={handleGenerate}
+                  className="bg-ripple-500 hover:bg-ripple-400 text-white px-8 py-4 rounded-xl font-medium transition-colors"
+                >
+                  Generate {supply} NFTs
+                </button>
+              )}
+
+              {detail.status === 'generated' && (
+                <div className="flex items-center justify-center gap-4">
+                  <Link
+                    href={`/collections/${collectionId}`}
+                    className="bg-ripple-500 hover:bg-ripple-400 text-white px-6 py-3 rounded-xl font-medium"
+                  >
+                    View collection
+                  </Link>
+                  <Link href="/dashboard" className="text-ripple-400 hover:text-ripple-200 text-sm">
+                    Dashboard
+                  </Link>
+                </div>
+              )}
+            </div>
+
+            {generatedNfts.length > 0 && (
+              <div>
+                <h3 className="text-lg font-semibold mb-4">Generated NFTs</h3>
+                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
+                  {generatedNfts.map((nft) => (
+                    <div
+                      key={nft.id}
+                      className="bg-ripple-900/60 border border-ripple-700/50 rounded-xl overflow-hidden"
+                    >
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img src={nft.imageUrl} alt={nft.name} className="aspect-square object-contain bg-ripple-950/50" />
+                      <div className="p-3">
+                        <p className="text-sm font-medium truncate">{nft.name}</p>
+                        <p className="text-xs text-ripple-400">Rank #{nft.rarityRank}</p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            <button onClick={goBack} className="text-ripple-400 hover:text-ripple-200 text-sm">
               ← Back to preview
             </button>
           </div>

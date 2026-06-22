@@ -74,7 +74,11 @@ function DashboardContent() {
             {collections.map((collection) => (
               <Link
                 key={collection.id}
-                href={`/create?collection=${collection.id}`}
+                href={
+                  collection.status === 'generated'
+                    ? `/collections/${collection.id}`
+                    : '/create'
+                }
                 className="bg-ripple-900/40 border border-ripple-700/50 rounded-2xl p-6 hover:border-ripple-500/50 transition-colors"
               >
                 <div className="flex items-start justify-between mb-3">

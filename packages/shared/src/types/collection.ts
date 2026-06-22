@@ -81,3 +81,28 @@ export interface UploadTraitsResult {
   assetsCreated: number;
   collection: CollectionDetail;
 }
+
+export interface GenerationJobStatus {
+  jobId: string;
+  status: 'queued' | 'processing' | 'completed' | 'failed' | 'cancelled';
+  progress: number;
+  total: number;
+  generated: number;
+  duplicatesSkipped: number;
+  error?: string;
+}
+
+export interface NftItemPreview {
+  id: string;
+  tokenId: number;
+  name: string;
+  imageUrl: string;
+  rarityScore: number;
+  rarityRank: number;
+  traits: Array<{ trait_type: string; value: string }>;
+}
+
+export interface NftListResponse {
+  items: NftItemPreview[];
+  total: number;
+}

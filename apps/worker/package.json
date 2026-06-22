@@ -3,20 +3,25 @@
   "version": "0.0.0",
   "private": true,
   "scripts": {
-    "build": "tsc",
-    "dev": "tsx watch src/index.ts",
+    "build": "npm run db:generate && tsc",
+    "dev": "npm run db:generate && tsx watch src/index.ts",
     "start": "node dist/index.js",
     "typecheck": "tsc --noEmit",
-    "lint": "echo 'no lint configured'"
+    "lint": "echo 'no lint configured'",
+    "db:generate": "prisma generate --schema=../api/prisma/schema.prisma"
   },
   "dependencies": {
+    "@prisma/client": "^6.9.0",
+    "@ripple-studio/generation": "*",
     "@ripple-studio/shared": "*",
     "bullmq": "^5.53.2",
-    "ioredis": "^5.6.1"
+    "ioredis": "^5.6.1",
+    "sharp": "^0.34.2"
   },
   "devDependencies": {
     "@ripple-studio/typescript-config": "*",
     "@types/node": "^22.15.21",
+    "prisma": "^6.9.0",
     "tsx": "^4.19.4",
     "typescript": "^5.8.3"
   }

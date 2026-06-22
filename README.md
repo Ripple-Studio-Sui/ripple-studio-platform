@@ -70,8 +70,14 @@ docker compose up -d
 # Run database migrations
 cd apps/api && npm run db:migrate:deploy && npm run db:seed && cd ../..
 
-# Start all services in dev mode
+# Start all services in dev mode (web + api + worker)
 npm run dev
+```
+
+Run the worker separately if not included in turbo dev:
+
+```bash
+cd apps/worker && npm run dev
 ```
 
 ### Database
@@ -118,7 +124,8 @@ Upload the parent folder in the create wizard (Step 2).
 🟢 **PR-2 complete** — Database schema & Prisma migrations  
 🟢 **PR-3 complete** — zkLogin authentication (Google + Apple)  
 🟢 **PR-4 complete** — Collection builder wizard with trait upload  
-🔜 **PR-5 next** — NFT generation worker
+🟢 **PR-5 complete** — NFT generation worker (Sharp compositing + rarity)  
+🔜 **PR-6 next** — Walrus storage upload
 
 ## License
 

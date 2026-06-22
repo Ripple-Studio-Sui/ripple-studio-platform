@@ -255,6 +255,7 @@ model NftItem {
   imageBlobId  String?       @map("image_blob_id") @db.VarChar(100)
   imageUrl     String?       @map("image_url")
   traitHash    String        @map("trait_hash") @db.VarChar(64)
+  traits       Json?
   rarityScore  Decimal?      @map("rarity_score") @db.Decimal(10, 4)
   rarityRank   Int?          @map("rarity_rank")
   status       NftItemStatus @default(pending)

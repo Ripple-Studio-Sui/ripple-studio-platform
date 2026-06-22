@@ -20,6 +20,9 @@
   },
   "dependencies": {
     "@mysten/sui": "^1.30.0",
+    "@ripple-studio/generation": "*",
+    "bullmq": "^5.53.2",
+    "ioredis": "^5.6.1",
     "@nestjs/common": "^11.1.2",
     "@nestjs/core": "^11.1.2",
     "@nestjs/jwt": "^11.0.0",
